@@ -28,18 +28,22 @@ app.post("/api/users", async (req, res) => {
 
 app.get("/api/users", async (req, res) => {
     const userArr = await getAllUsers();
-    res.send(userArr);
+    res.send(
+        userArr.map((obj) => {
+            return {
+                _id: obj._id,
+                username: obj.username,
+            };
+        })
+    );
 });
 
 app.post("/api/users/:_id/exercises", async (req, res) => {
     const obj = req.body;
-    // validation
     if (!obj[":_id"]) return res.send("Path ':_id' is required");
     if (!obj.description) return res.send("Path 'description' is required");
     if (!obj.duration) return res.send("Path 'duration' is required");
-    // duration string -> number
     obj.duration = parseInt(obj.duration);
-    // if no date, use durrent date
     if (!obj.date) {
         obj.date = new Date().toDateString();
     }
@@ -59,7 +63,18 @@ app.get("/api/users/:_id/logs", async (req, res) => {
     const _id = req.params._id;
     const obj = await getUserLogs(_id);
     if (!obj) return res.send("User does not exist");
-    res.json(obj);
+    res.json({
+        _id,
+        username: obj.username,
+        count: obj.logs.length,
+        log: obj.logs.map((obj) => {
+            return {
+                date: obj.date,
+                description: obj.description,
+                duration: obj.duration,
+            };
+        }),
+    });
 });
 
 const listener = app.listen(process.env.PORT || 3000, () => {
