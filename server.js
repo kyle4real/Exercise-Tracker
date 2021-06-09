@@ -44,8 +44,11 @@ app.post("/api/users/:_id/exercises", async (req, res) => {
     if (!obj.description) return res.send("Path 'description' is required");
     if (!obj.duration) return res.send("Path 'duration' is required");
     obj.duration = parseInt(obj.duration);
+    if (!obj.duration) return res.send("Path 'duration' must be a Number");
     if (!obj.date) {
         obj.date = new Date().toDateString();
+    } else {
+        obj.date = new Date(obj.date).toDateString();
     }
     const _id = req.params._id;
     const username = await addExercise(_id, obj);
@@ -60,22 +63,38 @@ app.post("/api/users/:_id/exercises", async (req, res) => {
 });
 
 app.get("/api/users/:_id/logs", async (req, res) => {
+    const queries = Object.keys(req.query).length !== 0;
     const _id = req.params._id;
     const obj = await getUserLogs(_id);
     if (!obj) return res.send("User does not exist");
+    const logs = obj.logs.map((obj) => {
+        return {
+            description: obj.description,
+            duration: obj.duration,
+            date: obj.date,
+        };
+    });
+
+    const filteredLogs = !queries ? logs : handleQueries(logs, req.query);
     res.json({
         _id,
         username: obj.username,
-        count: obj.logs.length,
-        log: obj.logs.map((obj) => {
-            return {
-                date: obj.date,
-                description: obj.description,
-                duration: obj.duration,
-            };
-        }),
+        count: filteredLogs.length,
+        log: filteredLogs,
     });
 });
+
+const handleQueries = (logs, query) => {
+    const startDate = query.from ? new Date(query.from) : new Date(0);
+    const endDate = query.to ? new Date(query.to) : new Date();
+    const fLogs = logs.filter((log) => {
+        const logDate = new Date(log.date);
+        return logDate >= startDate && logDate <= endDate;
+    });
+    if (!query.limit) return fLogs;
+    const limitNum = query.limit >= fLogs.length || query.limit <= 0 ? fLogs.length : query.limit;
+    return fLogs.slice(0, limitNum);
+};
 
 const listener = app.listen(process.env.PORT || 3000, () => {
     console.log(`App is listening on port ${listener.address().port}`);
